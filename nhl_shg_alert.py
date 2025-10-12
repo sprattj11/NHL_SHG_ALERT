@@ -85,15 +85,18 @@ def test_mode():
     print("✅ Dummy alert sent to your Pushover app")
 
 # Dummy server to satisfy Render
-def dummy_server():
+def start_dummy_server():
+    port = int(os.environ.get("PORT", "10000"))  # Render sets PORT for web services
     s = socket.socket()
-    s.bind(("0.0.0.0", 10000))  # choose any port
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(("0.0.0.0", port))
     s.listen(1)
+    # keep accepting and immediately closing connections
     while True:
-        conn, addr = s.accept()
+        conn, _ = s.accept()
         conn.close()
 
-threading.Thread(target=dummy_server, daemon=True).start()
+threading.Thread(target=start_dummy_server, daemon=True).start()
 
 # --- MAIN LOOP ---
 def main(test=False):
