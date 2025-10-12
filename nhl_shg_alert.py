@@ -1,6 +1,8 @@
 import os
 import time
 import requests
+import socket
+import threading
 from datetime import datetime
 
 # --- CONFIGURATION ---
@@ -81,6 +83,17 @@ def test_mode():
     }
     send_notification(fake_goal["attribution"]["name"], fake_goal["description"])
     print("✅ Dummy alert sent to your Pushover app")
+
+# Dummy server to satisfy Render
+def dummy_server():
+    s = socket.socket()
+    s.bind(("0.0.0.0", 10000))  # choose any port
+    s.listen(1)
+    while True:
+        conn, addr = s.accept()
+        conn.close()
+
+threading.Thread(target=dummy_server, daemon=True).start()
 
 # --- MAIN LOOP ---
 def main(test=False):
