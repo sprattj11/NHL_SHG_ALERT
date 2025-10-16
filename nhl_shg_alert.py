@@ -3,54 +3,157 @@ import time
 import requests
 import socket
 import threading
+import json
 from datetime import datetime
 
+
 # --- CONFIGURATION ---
-SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")  # Your Sportradar API key
+SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")
 BASE_URL = "https://api.sportradar.us/nhl/trial/v7/en"
 
-PUSHOVER_USER = os.getenv("PUSHOVER_USER")   # Your Pushover user key
-PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN") # Your Pushover app token
+PUSHOVER_USER = os.getenv("PUSHOVER_USER")
+PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN")
 
-CHECK_INTERVAL = 60  # seconds between full live checks
-PER_GAME_DELAY = 10  # seconds between each game's API call
+CHECK_INTERVAL = 60
+PER_GAME_DELAY = 10
+
+ODDS_API_KEY = os.getenv("ODDS_API_KEY")
+ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds"
+
+SHG_STATS_FILE = "shg_stats.json"
+
+
+# --- LOCAL SHG RECORD TRACKING ---
+def load_shg_stats():
+    if os.path.exists(SHG_STATS_FILE):
+        try:
+            with open(SHG_STATS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_shg_stats(stats):
+    with open(SHG_STATS_FILE, "w") as f:
+        json.dump(stats, f, indent=2)
+
+
+def update_team_shg_record(team_id, team_name):
+    stats = load_shg_stats()
+    if team_id not in stats:
+        stats[team_id] = {
+            "team_name": team_name,
+            "games_with_shg": 0,
+            "wins_after_shg": 0,
+            "losses_after_shg": 0
+        }
+
+    stats[team_id]["games_with_shg"] += 1
+    save_shg_stats(stats)
+
+
+def record_shg_game_result(winning_team_id, losing_team_id):
+    """Increment SHG win/loss totals if teams appear in stats."""
+    stats = load_shg_stats()
+    if winning_team_id in stats:
+        stats[winning_team_id]["wins_after_shg"] += 1
+    if losing_team_id in stats:
+        stats[losing_team_id]["losses_after_shg"] += 1
+    save_shg_stats(stats)
+
+
+def get_team_shg_record(team_id):
+    stats = load_shg_stats()
+    team = stats.get(team_id)
+    if not team:
+        return None
+    wins = team["wins_after_shg"]
+    losses = team["losses_after_shg"]
+    return f"{wins}-{losses} (SHG record)"
 
 
 # --- PUSHOVER NOTIFICATION ---
 def send_notification(team, description):
-    """Send a notification via Pushover."""
+    odds = None
+    if ODDS_API_KEY:
+        odds = fetch_odds_for_game(team)
+    message = f"Short-handed goal by {team}: {description}"
+    if odds:
+        ml = odds.get("ml")
+        pl = odds.get("puckline")
+        extras = []
+        if ml is not None:
+            extras.append(f"ML: {ml}")
+        if pl is not None:
+            extras.append(f"Puckline: {pl}")
+        if extras:
+            message += " | " + " | ".join(extras)
+
     url = "https://api.pushover.net/1/messages.json"
     payload = {
         "token": PUSHOVER_TOKEN,
         "user": PUSHOVER_USER,
         "title": "NHL SHG Alert",
-        "message": f"Short-handed goal by {team}: {description}"
+        "message": message
     }
     try:
         r = requests.post(url, data=payload)
         r.raise_for_status()
-        print(f"✅ Notification sent for {team}: {description}")
+        print(f"✅ Notification sent: {message}")
     except Exception as e:
         print(f"❌ Failed to send notification: {e}")
 
 
-# --- SPORTRADAR API HELPERS ---
+# --- ODDS FETCHING ---
+def fetch_odds_for_game(team_name):
+    params = {
+        "regions": "us",
+        "markets": "h2h,spreads",
+        "oddsFormat": "american",
+        "apiKey": ODDS_API_KEY
+    }
+    try:
+        resp = requests.get(ODDS_API_URL, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"❌ Failed to fetch odds: {e}")
+        return None
+
+    for game in data:
+        if team_name == game.get("home_team") or team_name == game.get("away_team"):
+            for book in game.get("bookmakers", []):
+                ml = None
+                pl = None
+                for market in book.get("markets", []):
+                    if market.get("key") == "h2h":
+                        for o in market.get("outcomes", []):
+                            if o.get("name") == team_name:
+                                ml = o.get("price")
+                    if market.get("key") == "spreads":
+                        for o in market.get("outcomes", []):
+                            if o.get("name") == team_name:
+                                pl = f"{o.get('point')} ({o.get('price')})"
+                return {"ml": ml, "puckline": pl}
+    return None
+
+
+# --- SPORTRADAR HELPERS ---
 def get_today_games():
-    """Return a list of game IDs for today."""
     today = datetime.now()
     url = f"{BASE_URL}/games/{today.year}/{today.month:02}/{today.day:02}/schedule.json?api_key={SPORTRADAR_API_KEY}"
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        return [game["id"] for game in data.get("games", []) if game.get("status") in ["inprogress", "scheduled"]]
+        return data.get("games", [])
     except Exception as e:
         print(f"❌ Failed to fetch today's games: {e}")
         return []
 
 
 def get_live_plays(game_id):
-    """Return live play-by-play events for a game."""
     url = f"{BASE_URL}/games/{game_id}/pbp.json?api_key={SPORTRADAR_API_KEY}"
     try:
         response = requests.get(url)
@@ -68,12 +171,36 @@ def get_live_plays(game_id):
         return []
 
 
-# --- CHECK SHORT-HANDED GOALS ---
-def check_shg(plays_seen):
-    """Check all live games for new short-handed goals and send real notifications."""
-    game_ids = get_today_games()
+def get_final_game_result(game_id):
+    """Return (winner_id, loser_id) if final."""
+    url = f"{BASE_URL}/games/{game_id}/summary.json?api_key={SPORTRADAR_API_KEY}"
+    try:
+        r = requests.get(url)
+        r.raise_for_status()
+        data = r.json()
+        if data.get("status") != "closed":
+            return None, None
 
-    for gid in game_ids:
+        home = data.get("home")
+        away = data.get("away")
+        if not home or not away:
+            return None, None
+
+        if home["points"] > away["points"]:
+            return home["id"], away["id"]
+        elif away["points"] > home["points"]:
+            return away["id"], home["id"]
+    except Exception as e:
+        print(f"⚠️ Could not fetch final result for {game_id}: {e}")
+    return None, None
+
+
+# --- SHG CHECK ---
+def check_shg(plays_seen):
+    games = get_today_games()
+
+    for g in games:
+        gid = g["id"]
         periods = get_live_plays(gid)
         for p in periods:
             for event in p.get("events", []):
@@ -81,12 +208,26 @@ def check_shg(plays_seen):
                     key = f"{gid}-{event['id']}"
                     if key not in plays_seen:
                         desc = event.get("description", "No description")
-                        team = event.get("attribution", {}).get("name", "Unknown team")
-                        send_notification(team, desc)
+                        team_name = event.get("attribution", {}).get("name", "Unknown team")
+                        team_id = event.get("attribution", {}).get("id")
+
+                        update_team_shg_record(team_id, team_name)
+                        shg_record = get_team_shg_record(team_id)
+                        if shg_record:
+                            desc += f" | Team record: {shg_record}"
+
+                        send_notification(team_name, desc)
                         plays_seen.add(key)
 
-        # Delay between per-game API calls to avoid rate limits
         time.sleep(PER_GAME_DELAY)
+
+    # After scanning live games, check finals
+    for g in games:
+        gid = g["id"]
+        if g.get("status") == "closed":
+            winner, loser = get_final_game_result(gid)
+            if winner and loser:
+                record_shg_game_result(winner, loser)
 
 
 # --- DUMMY TEST MODE ---
@@ -96,15 +237,19 @@ def test_mode():
         "event_type": "goal",
         "strength": "shorthanded",
         "description": "Connor McDavid scores short-handed breakaway goal!",
-        "attribution": {"name": "Edmonton Oilers"}
+        "attribution": {"name": "Edmonton Oilers", "id": "441713b7-0f24-11e2-8525-18a905767e44"}
     }
-    send_notification(fake_goal["attribution"]["name"], fake_goal["description"])
+
+    update_team_shg_record(fake_goal["attribution"]["id"], fake_goal["attribution"]["name"])
+    shg_record = get_team_shg_record(fake_goal["attribution"]["id"])
+    desc = f"{fake_goal['description']} | Team record: {shg_record}"
+    send_notification(fake_goal["attribution"]["name"], desc)
     print("✅ Dummy alert sent to your Pushover app")
 
 
 # --- DUMMY SERVER (for Render) ---
 def start_dummy_server():
-    port = int(os.environ.get("PORT", "10000"))  # Render sets PORT for web services
+    port = int(os.environ.get("PORT", "10000"))
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(("0.0.0.0", port))
@@ -137,7 +282,6 @@ def main(test=False):
         time.sleep(30)
 
 
-# --- ENTRY POINT ---
 if __name__ == "__main__":
     import sys
     if "--test" in sys.argv:
