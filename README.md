@@ -13,6 +13,7 @@ It can run 24/7 on Render.com or locally on your machine.
 - Graceful shutdown handling (Ctrl +C)
 - Rate-limit aware polling (safe for free Sportradar tier)
 - Headless operation (no web interface needed)
+- Runtime JSON stats handled safely (won’t conflict with Git)
 
 ------------------------------------------------------------
 🧰 REQUIREMENTS
@@ -22,6 +23,7 @@ It can run 24/7 on Render.com or locally on your machine.
 - Pushover account (https://pushover.net)
   - You’ll need both a User Key and an App Token
 - Sportradar NHL API key (https://developer.sportradar.com)
+- The Odds API key (https://the-odds-api.com/)
 
 ------------------------------------------------------------
 ⚙️ INSTALLATION
@@ -44,11 +46,13 @@ It can run 24/7 on Render.com or locally on your machine.
      export SPORTRADAR_API_KEY="your_sportradar_api_key"
      export PUSHOVER_USER="your_pushover_user_key"
      export PUSHOVER_TOKEN="your_pushover_app_token"
+     export ODDS_API_KEY="your_the_odds_api_key"
 
    Windows (PowerShell):
      setx SPORTRADAR_API_KEY "your_sportradar_api_key"
      setx PUSHOVER_USER "your_pushover_user_key"
      setx PUSHOVER_TOKEN "your_pushover_app_token"
+     setx ODDS_API_KEY="your_the_odds_api_key"
 
 ------------------------------------------------------------
 ▶️ USAGE
@@ -59,7 +63,7 @@ Dummy test (sends real Pushover notification):
 Start the live alert service:
    python3 nhl_shg_alert.py
 
-Press Ctrl +C to gracefully stop the service.
+Press Ctrl +C to stop the service.
 
 ------------------------------------------------------------
 ☁️ DEPLOYING ON RENDER
@@ -71,6 +75,7 @@ Press Ctrl +C to gracefully stop the service.
    - SPORTRADAR_API_KEY
    - PUSHOVER_USER
    - PUSHOVER_TOKEN
+   - ODDS_API_KEY
 5. Start command:
    python3 nhl_shg_alert.py
 6. If you see 'No open ports detected' — that's normal. The dummy server keeps it alive.
@@ -84,7 +89,7 @@ NHL API → nhl_shg_alert.py → Pushover → Your Phone
 🪶 EXAMPLE NOTIFICATION
 ------------------------------------------------------------
 NHL SHG Alert
-Short-handed goal by Edmonton Oilers: Connor McDavid scores short-handed breakaway goal!
+Short-handed goal by Edmonton Oilers: Connor McDavid scores short-handed breakaway goal! | Team record: 1-0 (SHG Record) | ML: -170 | Puckline: -1.5 (145)
 
 ------------------------------------------------------------
 🧹 GRACEFUL EXIT
