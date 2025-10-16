@@ -11,7 +11,8 @@ from datetime import datetime
 SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")
 BASE_URL = "https://api.sportradar.us/nhl/trial/v7/en"
 
-PUSHOVER_USER = os.getenv("PUSHOVER_USER")
+PUSHOVER_USER1 = os.getenv("PUSHOVER_USER1")
+PUSHOVER_USER2 = os.getenv("PUSHOVER_USER2")
 PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN")
 
 CHECK_INTERVAL = 60
@@ -21,6 +22,8 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds"
 
 SHG_STATS_FILE = "shg_stats.json"
+
+push_users = [os.getenv("PUSHOVER_USER1"), os.getenv("PUSHOVER_USER2")]
 
 
 # --- LOCAL SHG RECORD TRACKING ---
@@ -46,7 +49,7 @@ def update_team_shg_record(team_id, team_name):
             "team_name": team_name,
             "games_with_shg": 0,
             "wins_after_shg": 0,
-            "losses_after_shg": 0
+            "losses_after_shg": 0,
         }
 
     stats[team_id]["games_with_shg"] += 1
@@ -91,18 +94,21 @@ def send_notification(team, description):
             message += " | " + " | ".join(extras)
 
     url = "https://api.pushover.net/1/messages.json"
-    payload = {
-        "token": PUSHOVER_TOKEN,
-        "user": PUSHOVER_USER,
-        "title": "NHL SHG Alert",
-        "message": message
-    }
-    try:
-        r = requests.post(url, data=payload)
-        r.raise_for_status()
-        print(f"✅ Notification sent: {message}")
-    except Exception as e:
-        print(f"❌ Failed to send notification: {e}")
+    for user_key in push_users:
+        if not user_key:
+            continue  # Skip if env variable not set
+        payload = {
+            "token": PUSHOVER_TOKEN,
+            "user": user_key,
+            "title": "NHL SHG Alert",
+            "message": message,
+        }
+        try:
+            r = requests.post(url, data=payload)  # <-- move inside the loop
+            r.raise_for_status()
+            print(f"✅ Notification sent to {user_key}: {message}")
+        except Exception as e:
+            print(f"❌ Failed to send notification to {user_key}: {e}")
 
 
 # --- ODDS FETCHING ---
@@ -111,7 +117,7 @@ def fetch_odds_for_game(team_name):
         "regions": "us",
         "markets": "h2h,spreads",
         "oddsFormat": "american",
-        "apiKey": ODDS_API_KEY
+        "apiKey": ODDS_API_KEY,
     }
     try:
         resp = requests.get(ODDS_API_URL, params=params)
@@ -205,10 +211,15 @@ def check_shg(plays_seen):
         for p in periods:
             period_num = p.get("number", 0)
             for event in p.get("events", []):
-                if event.get("event_type") == "goal" and event.get("strength") == "shorthanded":
+                if (
+                    event.get("event_type") == "goal"
+                    and event.get("strength") == "shorthanded"
+                ):
                     key = f"{gid}-{event['id']}"
                     if key not in plays_seen:
-                        team_name = event.get("attribution", {}).get("name", "Unknown team")
+                        team_name = event.get("attribution", {}).get(
+                            "name", "Unknown team"
+                        )
                         team_id = event.get("attribution", {}).get("id")
 
                         # Include time left in the period
@@ -244,10 +255,15 @@ def test_mode():
         "event_type": "goal",
         "strength": "shorthanded",
         "description": "Connor McDavid scores short-handed breakaway goal!",
-        "attribution": {"name": "Test Team", "id": "44174b0d-0f24-11e2-8525-18a905767e44"}
+        "attribution": {
+            "name": "Test Team",
+            "id": "44174b0d-0f24-11e2-8525-18a905767e44",
+        },
     }
 
-    update_team_shg_record(fake_goal["attribution"]["id"], fake_goal["attribution"]["name"])
+    update_team_shg_record(
+        fake_goal["attribution"]["id"], fake_goal["attribution"]["name"]
+    )
     shg_record = get_team_shg_record(fake_goal["attribution"]["id"])
     desc = f"{fake_goal['description']} | Team record: {shg_record} | Period 2 - Time left: 05:32"
     send_notification(fake_goal["attribution"]["name"], desc)
@@ -288,8 +304,10 @@ def main(test=False):
         print(f"❌ Unexpected error: {e}")
         time.sleep(30)
 
+
 if __name__ == "__main__":
     import sys
+
     if "--test" in sys.argv:
         main(test=True)
     else:

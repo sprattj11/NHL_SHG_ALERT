@@ -10,8 +10,8 @@ It can run 24/7 on Render.com or locally on your machine.
 - Polls live NHL games for short-handed goals in real time
 - Sends instant push notifications via Pushover
 - Dummy test mode for verifying notifications
+- Supports sending notifications to multiple Pushover users
 - Graceful shutdown handling (Ctrl +C)
-- Rate-limit aware polling (safe for free Sportradar tier)
 - Headless operation (no web interface needed)
 - Runtime JSON stats handled safely (won’t conflict with Git)
 
@@ -44,13 +44,15 @@ It can run 24/7 on Render.com or locally on your machine.
 
    macOS/Linux:
      export SPORTRADAR_API_KEY="your_sportradar_api_key"
-     export PUSHOVER_USER="your_pushover_user_key"
+     export PUSHOVER_USER1="first_user_key"
+     export PUSHOVER_USER2="second_user_key"
      export PUSHOVER_TOKEN="your_pushover_app_token"
      export ODDS_API_KEY="your_the_odds_api_key"
 
    Windows (PowerShell):
      setx SPORTRADAR_API_KEY "your_sportradar_api_key"
-     setx PUSHOVER_USER "your_pushover_user_key"
+     setx PUSHOVER_USER1 "first_user_key"
+     setx PUSHOVER_USER2 "second_user_key"
      setx PUSHOVER_TOKEN "your_pushover_app_token"
      setx ODDS_API_KEY="your_the_odds_api_key"
 
