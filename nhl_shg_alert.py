@@ -203,19 +203,26 @@ def check_shg(plays_seen):
         gid = g["id"]
         periods = get_live_plays(gid)
         for p in periods:
+            period_num = p.get("number", 0)
             for event in p.get("events", []):
                 if event.get("event_type") == "goal" and event.get("strength") == "shorthanded":
                     key = f"{gid}-{event['id']}"
                     if key not in plays_seen:
-                        desc = event.get("description", "No description")
                         team_name = event.get("attribution", {}).get("name", "Unknown team")
                         team_id = event.get("attribution", {}).get("id")
 
+                        # Include time left in the period
+                        period_time = event.get("clock", "Unknown")
+                        desc = event.get("description", "No description")
+                        desc += f" | Period {period_num} - Time left: {period_time}"
+
+                        # Update SHG stats
                         update_team_shg_record(team_id, team_name)
                         shg_record = get_team_shg_record(team_id)
                         if shg_record:
                             desc += f" | Team record: {shg_record}"
 
+                        # Send notification
                         send_notification(team_name, desc)
                         plays_seen.add(key)
 
@@ -242,7 +249,7 @@ def test_mode():
 
     update_team_shg_record(fake_goal["attribution"]["id"], fake_goal["attribution"]["name"])
     shg_record = get_team_shg_record(fake_goal["attribution"]["id"])
-    desc = f"{fake_goal['description']} | Team record: {shg_record}"
+    desc = f"{fake_goal['description']} | Team record: {shg_record} | Period 2 - Time left: 05:32"
     send_notification(fake_goal["attribution"]["name"], desc)
     print("✅ Dummy alert sent to your Pushover app")
 
@@ -280,7 +287,6 @@ def main(test=False):
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         time.sleep(30)
-
 
 if __name__ == "__main__":
     import sys

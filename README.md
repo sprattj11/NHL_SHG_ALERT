@@ -89,7 +89,7 @@ NHL API → nhl_shg_alert.py → Pushover → Your Phone
 🪶 EXAMPLE NOTIFICATION
 ------------------------------------------------------------
 NHL SHG Alert
-Short-handed goal by Edmonton Oilers: Connor McDavid scores short-handed breakaway goal! | Team record: 1-0 (SHG Record) | ML: -170 | Puckline: -1.5 (145)
+Short-handed goal by Edmonton Oilers: Connor McDavid scores short-handed breakaway goal! | Team record: 1-0 (SHG Record) | ML: -170 | Puckline: -1.5 (145) | Period: 2 - Time Left: 05:32
 
 ------------------------------------------------------------
 🧹 GRACEFUL EXIT
