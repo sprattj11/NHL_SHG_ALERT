@@ -13,6 +13,7 @@ BASE_URL = "https://api.sportradar.us/nhl/trial/v7/en"
 
 PUSHOVER_USER1 = os.getenv("PUSHOVER_USER1")
 PUSHOVER_USER2 = os.getenv("PUSHOVER_USER2")
+PUSHOVER_USER3 = os.getenv("PUSHOVER_USER3")
 PUSHOVER_TOKEN = os.getenv("PUSHOVER_TOKEN")
 
 CHECK_INTERVAL = 60
@@ -23,7 +24,7 @@ ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds"
 
 SHG_STATS_FILE = "shg_stats.json"
 
-push_users = [os.getenv("PUSHOVER_USER1"), os.getenv("PUSHOVER_USER2")]
+push_users = [os.getenv("PUSHOVER_USER1"), os.getenv("PUSHOVER_USER2"), os.getenv("PUSHOVER_USER3")]
 
 
 # --- LOCAL SHG RECORD TRACKING ---
@@ -254,7 +255,7 @@ def test_mode():
     fake_goal = {
         "event_type": "goal",
         "strength": "shorthanded",
-        "description": "Connor McDavid scores short-handed breakaway goal!",
+        "description": "Jack Eichel scores short-handed breakaway goal!",
         "attribution": {
             "name": "Test Team",
             "id": "44174b0d-0f24-11e2-8525-18a905767e44",
