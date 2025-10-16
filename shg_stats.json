@@ -1,4 +1,10 @@
 {
+  "44174b0d-0f24-11e2-8525-18a905767e44": {
+    "team_name": "Test Team",
+    "games_with_shg": 2,
+    "wins_after_shg": 0,
+    "losses_after_shg": 0
+  },
   "4415ea6c-0f24-11e2-8525-18a905767e44": {
     "team_name": "Edmonton Oilers",
     "games_with_shg": 1,
@@ -115,7 +121,7 @@
   },
   "441713b7-0f24-11e2-8525-18a905767e44": {
     "team_name": "Montreal Canadiens",
-    "games_with_shg": 1,
+    "games_with_shg": 3,
     "wins_after_shg": 0,
     "losses_after_shg": 1
   },

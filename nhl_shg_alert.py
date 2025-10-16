@@ -237,7 +237,7 @@ def test_mode():
         "event_type": "goal",
         "strength": "shorthanded",
         "description": "Connor McDavid scores short-handed breakaway goal!",
-        "attribution": {"name": "Edmonton Oilers", "id": "441713b7-0f24-11e2-8525-18a905767e44"}
+        "attribution": {"name": "Test Team", "id": "44174b0d-0f24-11e2-8525-18a905767e44"}
     }
 
     update_team_shg_record(fake_goal["attribution"]["id"], fake_goal["attribution"]["name"])
